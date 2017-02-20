@@ -1,0 +1,23 @@
+name:          pandoc-include-code
+author:        Oskar Wickström
+homepage:	     https://github.com/owickstrom/pandoc-include-code
+version:       0.2.0
+cabal-version: >= 1.8
+build-type:    Simple
+license:       MPL-2.0
+license-file:  LICENSE
+
+source-repository head
+  type:     git
+  location: git://github.com/owickstrom/pandoc-include-code.git
+
+executable pandoc-include-code
+    hs-source-dirs:  src
+    main-is:         Main.hs
+    ghc-options:     -Wall -threaded -O2 -rtsopts -with-rtsopts=-N
+    build-depends:   base   >= 4      && < 5
+                   , containers
+                   , process
+                   , filepath
+                   , pcre-heavy
+                   , pandoc-types
