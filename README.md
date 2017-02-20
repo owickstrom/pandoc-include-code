@@ -48,7 +48,13 @@ If you want to include a specific range of lines, use `startLine` and `endLine`:
     ```{include=docs/MyFile.hs startLine=35 endLine=80}
     ```
 
-## Install/Build
+## Install
+
+```bash
+stack install pandoc-include-code
+```
+
+## Build
 
 Requirements:
 
