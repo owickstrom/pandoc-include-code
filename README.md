@@ -54,6 +54,8 @@ If you want to include a specific range of lines, use `startLine` and `endLine`:
 stack install pandoc-include-code
 ```
 
+The package is [available at Hackage](https://hackage.haskell.org/package/pandoc-include-code).
+
 ## Build
 
 Requirements:
