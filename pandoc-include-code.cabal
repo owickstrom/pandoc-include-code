@@ -23,9 +23,10 @@ library
     hs-source-dirs:  src
     exposed-modules: Text.Pandoc.Filter.IncludeCode
     build-depends:   base   >= 4      && < 5
-                   , containers
+                   , unordered-containers
                    , process
                    , filepath
+                   , mtl
                    , pandoc-types
 
 
