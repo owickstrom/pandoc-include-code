@@ -1,5 +1,7 @@
 *.hi
 *.o
+dist
+dist-newstyle
 .stack-work/
 .cabal-sandbox
 cabal.sandbox.config

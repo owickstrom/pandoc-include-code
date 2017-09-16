@@ -19,12 +19,34 @@ source-repository head
   type:     git
   location: git://github.com/owickstrom/pandoc-include-code.git
 
-executable pandoc-include-code
+library
     hs-source-dirs:  src
-    main-is:         Main.hs
+    exposed-modules: Text.Pandoc.Filter.IncludeCode
     build-depends:   base   >= 4      && < 5
                    , containers
                    , process
                    , filepath
                    , pcre-heavy
                    , pandoc-types
+
+
+executable pandoc-include-code
+    hs-source-dirs:  filter
+    main-is:         Main.hs
+    build-depends:   base   >= 4      && < 5
+                   , pandoc-types
+                   , pandoc-include-code
+
+test-suite filter-tests
+    type:            exitcode-stdio-1.0
+    hs-source-dirs:  test
+    main-is:         Driver.hs
+    build-depends:   base   >= 4      && < 5
+                   , containers
+                   , process
+                   , filepath
+                   , pcre-heavy
+                   , pandoc-types
+                   , pandoc-include-code
+                   , tasty
+                   , tasty-hunit

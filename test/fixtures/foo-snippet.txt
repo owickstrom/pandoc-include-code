@@ -1,0 +1,3 @@
+start snippet foo
+foo
+end snippet foo

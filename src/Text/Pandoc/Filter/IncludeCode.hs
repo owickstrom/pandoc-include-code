@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE QuasiQuotes      #-}
 
-module Main where
+module Text.Pandoc.Filter.IncludeCode where
 
 import qualified Data.Map              as Map
 
@@ -104,17 +104,15 @@ includeCode (Just fmt) cb@(CodeBlock (id', classes, attrs) _) = do
           filteredAttrs = foldl (flip Map.delete) attrs' paramNames
           classes' = unwords classes
       case fmt of
-        Format "html5" | isFormatted ->
-          return
-            (RawBlock
-               (Format "html")
-               ("<pre class=" ++
-                classes' ++ "><code>" ++ filteredLines ++ "</code></pre>"))
+        Format "html5"
+          | isFormatted ->
+            return
+              (RawBlock
+                 (Format "html")
+                 ("<pre class=" ++
+                  classes' ++ "><code>" ++ filteredLines ++ "</code></pre>"))
         _ ->
           return
             (CodeBlock (id', classes, Map.toList filteredAttrs) filteredLines)
     Nothing -> return cb
 includeCode _ x = return x
-
-main :: IO ()
-main = toJSONFilter includeCode
