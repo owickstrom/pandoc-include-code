@@ -13,30 +13,20 @@ import           Text.Pandoc.JSON
 type Formatted = Bool
 
 includeCode ::
-     Format
-  -> String
-  -> Maybe String
-  -> (Maybe Word, Maybe Word)
-  -> Formatted
+  String
+  -> [(String, String)]
   -> IO Block
-includeCode fmt fixtureName snippet (startLine, endLine) formatted =
+includeCode fixtureName attrs =
   Filter.includeCode
-    (Just fmt)
+    (Just (Format "html5"))
     (CodeBlock
        ( ""
        , []
        , mconcat
            [ [("include", "test/fixtures/" ++ fixtureName)]
-           , maybe [] ((: []) . ("snippet", )) snippet
-           , maybe [] ((: []) . ("startLine", ) . show) startLine
-           , maybe [] ((: []) . ("endLine", ) . show) endLine
-           , [("formatted", "true") | formatted]
+           , attrs
            ])
        "")
-
-includeCodeForHtml ::
-     String -> Maybe String -> (Maybe Word, Maybe Word) -> Formatted -> IO Block
-includeCodeForHtml = includeCode (Format "html5")
 
 noRange = (Nothing, Nothing)
 
@@ -47,15 +37,21 @@ tests =
   testGroup
     "Text.Pandoc.Filter.IncludeCode"
     [ testCase "includes snippet" $
-      includeCodeForHtml "foo-snippet.txt" (Just "foo") noRange False @@?=
+      includeCode "foo-snippet.txt" [("snippet", "foo")] @@?=
       codeBlock "foo\n"
     , testCase "includes snippet within start and end line" $
-      includeCodeForHtml "foo-snippet.txt" (Just "foo") (Just 1, Just 3) False @@?=
+      includeCode "foo-snippet.txt" [("snippet", "foo"), ("startLine", "1"), ("endLine", "3")] @@?=
       codeBlock "foo\n"
     , testCase "excludes snippet outside start and end line" $
-      includeCodeForHtml "foo-snippet.txt" (Just "foo") (Just 2, Just 3) False @@?=
+      includeCode "foo-snippet.txt" [("snippet", "foo"), ("startLine", "2"), ("endLine", "3")] @@?=
       codeBlock ""
     , testCase "includes only lines between start and end line" $
-      includeCodeForHtml "some-text.txt" Nothing (Just 2, Just 3) False @@?=
+      includeCode "some-text.txt" [("startLine", "2"), ("endLine", "3")] @@?=
       codeBlock "world\nthis\n"
+    , testCase "dedents lines as much as specified" $
+      includeCode "indents.txt" [("dedent", "1")] @@?=
+      codeBlock "zero\n two\none\n  three\n       eight\n"
+    , testCase "dedents lines as much as possible without removing non-whitespace" $
+      includeCode "indents.txt" [("dedent", "8")] @@?=
+      codeBlock "zero\ntwo\none\nthree\neight\n"
     ]

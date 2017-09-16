@@ -48,10 +48,19 @@ If you want to include a specific range of lines, use `startLine` and `endLine`:
     ```{include=docs/MyFile.hs startLine=35 endLine=80}
     ```
 
+### Dedent
+
+Using the `dedent` attribute, you can have whitespaces removed on each line,
+where possible (non-whitespace character will not be removed even if they occur
+in the dedent area).
+
+    ```{include=docs/MyFile.hs dedent=4}
+    ```
+
 ## Install
 
 ```bash
-stack install pandoc-include-code
+cabal install pandoc-include-code
 ```
 
 The package is [available at Hackage](https://hackage.haskell.org/package/pandoc-include-code).
@@ -60,15 +69,16 @@ The package is [available at Hackage](https://hackage.haskell.org/package/pandoc
 
 Requirements:
 
-* [Stack](https://docs.haskellstack.org/en/stable/README/)
+* [Cabal](https://www.haskell.org/cabal/) or
+  [Stack](https://docs.haskellstack.org/en/stable/README/), either works.
 
 To install from sources, run:
 
 ```bash
 git clone git@github.com:owickstrom/pandoc-include-code.git
 cd pandoc-include-code
-stack setup
-stack install
+cabal configure
+cabal install
 ```
 
 ## Run

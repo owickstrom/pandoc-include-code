@@ -5,6 +5,7 @@
 module Text.Pandoc.Filter.IncludeCode where
 
 import           Control.Monad.Reader
+import           Data.Char            (isSpace)
 import           Data.Function        ((&))
 import           Data.HashMap.Strict  (HashMap)
 import qualified Data.HashMap.Strict  as HM
@@ -16,6 +17,7 @@ data InclusionSpec = InclusionSpec
   { include :: FilePath
   , snippet :: Maybe String
   , range   :: Maybe (Int, Int)
+  , dedent  :: Maybe Int
   }
 
 type Inclusion = ReaderT InclusionSpec IO
@@ -29,6 +31,7 @@ parseInclusion attrs = do
   return InclusionSpec {..}
   where
     snippet = HM.lookup "snippet" attrs
+    dedent = HM.lookup "dedent" attrs >>= readMaybe
     range = do
       start <- HM.lookup "startLine" attrs >>= readMaybe
       end <- HM.lookup "endLine" attrs >>= readMaybe
@@ -56,29 +59,44 @@ onlySnippet contents = do
   s <- asks snippet
   case s of
     Just name ->
-      contents & lines & dropWhile (not . isSnippetStart) &
-      takeWhile (not . isSnippetEnd) &
-      unlines &
-      drop 1 &
-      return
+      lines contents
+      & dropWhile (not . isSnippetStart)
+      & takeWhile (not . isSnippetEnd)
+      & drop 1
+      & unlines
+      & return
       where isSnippetTag tag line =
               (tag ++ " snippet " ++ name) `isInfixOf` line
             isSnippetStart = isSnippetTag "start"
             isSnippetEnd = isSnippetTag "end"
     Nothing -> return contents
 
+dedentLines :: String -> Inclusion String
+dedentLines contents = do
+  d <- asks dedent
+  case d of
+    Just n  -> lines contents & map (dedentLine n) & unlines & return
+    Nothing -> return contents
+  where
+    dedentLine 0 line = line
+    dedentLine _ "" = ""
+    dedentLine n (c:cs)
+      | isSpace c = dedentLine (pred n) cs
+      | otherwise = c : cs
+
 filterAttributes :: [(String, String)] -> [(String, String)]
 filterAttributes = filter nonFilterAttribute
   where
-    nonFilterAttribute (key, _) = key `elem` attributeNames
-    attributeNames = ["include", "startLine", "endLine", "snippet"]
+    nonFilterAttribute (key, _) = key `notElem` attributeNames
+    attributeNames = ["include", "startLine", "endLine", "snippet", "dedent"]
 
 includeCode :: Maybe Format -> Block -> IO Block
 includeCode _ cb@(CodeBlock (id', classes, attrs) _) =
   case parseInclusion (HM.fromList attrs) of
     Just i -> do
       contents <-
-        runInclusion i $ readIncluded >>= filterLineRange >>= onlySnippet
+        runInclusion i $
+        readIncluded >>= filterLineRange >>= onlySnippet >>= dedentLines
       return (CodeBlock (id', classes, filterAttributes attrs) contents)
     Nothing -> return cb
 includeCode _ x = return x
