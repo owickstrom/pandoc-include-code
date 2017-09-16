@@ -141,6 +141,7 @@ printAndFail = fail . formatError
         IncompleteRange End ->
           "Incomplete range: \"endLine\" is missing"
 
+-- | A Pandoc filter that includes code snippets from external files.
 includeCode :: Maybe Format -> Block -> IO Block
 includeCode _ cb@(CodeBlock (id', classes, attrs) _) =
   case parseInclusion (HM.fromList attrs) of

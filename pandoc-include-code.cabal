@@ -1,19 +1,20 @@
-name:          pandoc-include-code
-synopsis:      A Pandoc filter for including code from source files
+name:                pandoc-include-code
+synopsis:            A Pandoc filter for including code from source files
 description:
   A Pandoc filter for including code from source files.
   It lets you keep your examples and documentation compiled and in sync,
   include small snippets from larger source files, and use Markdown or LaTeX
   together with preformatted HTML-like sources, in Pandoc.
-author:        Oskar Wickström
-maintainer:    Oskar Wickström
-homepage:	     https://github.com/owickstrom/pandoc-include-code
-version:       1.0.0.0
-cabal-version: >= 1.8
-build-type:    Simple
-category:      Documentation
-license:       MPL-2.0
-license-file:  LICENSE
+author:              Oskar Wickström
+maintainer:          Oskar Wickström
+homepage:	           https://github.com/owickstrom/pandoc-include-code
+version:             1.0.0.0
+cabal-version:       >= 1.8
+build-type:          Simple
+category:            Documentation
+license:             MPL-2.0
+license-file:        LICENSE
+extra-source-files:  CHANGELOG.md
 
 source-repository head
   type:     git
