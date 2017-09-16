@@ -1,5 +1,4 @@
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE QuasiQuotes      #-}
 
 module Text.Pandoc.Filter.IncludeCode where
 
@@ -9,54 +8,6 @@ import           Data.Function         ((&))
 import           Data.List             (isInfixOf)
 import           Text.Pandoc.JSON
 import           Text.Read
-import           Text.Regex.PCRE.Heavy
-
-type IsEscaped = Bool
-
-encloseInListingEscape :: IsEscaped -> String -> String
-encloseInListingEscape True s  = s
-encloseInListingEscape False s = "@" ++ s ++ "@"
-
-escapeForLatex :: IsEscaped -> String -> String
-escapeForLatex isEscaped = concatMap escape
-  where
-    escape '$' =
-      if isEscaped
-        then "\\$"
-        else "$"
-    escape c = [c]
-
-replaceDashWithLatex :: IsEscaped -> String -> String
-replaceDashWithLatex isEscaped = gsub ([re|(\--)|]) toLatex
-  where
-    toLatex ("--":_) = encloseInListingEscape isEscaped "-{}-"
-    toLatex _        = ""
-
-replaceTagWithLatex :: IsEscaped -> String -> String
-replaceTagWithLatex isEscaped s = foldl replaceWith s replacements
-  where
-    replacements =
-      [ ([re|<strong>(.*?)</strong>|], "\\texttt{\\textbf{", "}}")
-      , ([re|<em>(.*?)</em>|], "\\texttt{\\textit{", "}}")
-      , ([re|<sub>(.*?)</sub>|], "\\textsubscript{", "}")
-      ]
-    replaceWith s' (r, pre, post) = gsub r (toLatex pre post) s'
-    toLatex pre post (contents:_) =
-      let replacedContents = replaceWithLatex True contents
-          command = pre ++ replacedContents ++ post
-      in encloseInListingEscape isEscaped command
-    toLatex _ _ [] = ""
-
-replaceWithLatex :: Bool -> String -> String
-replaceWithLatex isEscaped =
-  replaceDashWithLatex isEscaped .
-  replaceTagWithLatex isEscaped . escapeForLatex isEscaped
-
-postProcess :: Format -> String -> String
-postProcess fmt contents
-  | fmt == Format "latex" =
-    unlines $ map (replaceWithLatex False) $ lines contents
-  | otherwise = contents
 
 getRange :: Map.Map String String -> Maybe (Int, Int)
 getRange attrs = do
@@ -92,27 +43,13 @@ includeCode (Just fmt) cb@(CodeBlock (id', classes, attrs) _) = do
   let attrs' = Map.fromList attrs
   case Map.lookup "include" attrs' of
     Just f -> do
-      let isFormatted = "formatted" `Map.member` attrs'
-      fileContents <-
-        if isFormatted
-          then postProcess fmt <$> readFile f
-          else readFile f
+      fileContents <- readFile f
       let filteredLines =
             fileContents & withinLines (getRange attrs') & onlySnippet attrs'
           paramNames =
-            ["include", "formatted", "startLine", "endLine", "snippet"]
+            ["include", "startLine", "endLine", "snippet"]
           filteredAttrs = foldl (flip Map.delete) attrs' paramNames
           classes' = unwords classes
-      case fmt of
-        Format "html5"
-          | isFormatted ->
-            return
-              (RawBlock
-                 (Format "html")
-                 ("<pre class=" ++
-                  classes' ++ "><code>" ++ filteredLines ++ "</code></pre>"))
-        _ ->
-          return
-            (CodeBlock (id', classes, Map.toList filteredAttrs) filteredLines)
+      return (CodeBlock (id', classes, Map.toList filteredAttrs) filteredLines)
     Nothing -> return cb
 includeCode _ x = return x
