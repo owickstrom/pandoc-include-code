@@ -1,54 +1,94 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE NamedFieldPuns   #-}
-{-# LANGUAGE RecordWildCards  #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase                 #-}
+{-# LANGUAGE NamedFieldPuns             #-}
+{-# LANGUAGE RecordWildCards            #-}
 
-module Text.Pandoc.Filter.IncludeCode where
+module Text.Pandoc.Filter.IncludeCode
+  ( includeCode
+  ) where
 
+import           Control.Exception
+import           Control.Monad.Except
 import           Control.Monad.Reader
 import           Data.Char            (isSpace)
 import           Data.Function        ((&))
 import           Data.HashMap.Strict  (HashMap)
 import qualified Data.HashMap.Strict  as HM
 import           Data.List            (isInfixOf)
+import           Data.Maybe           (fromMaybe)
 import           Text.Pandoc.JSON
 import           Text.Read            (readMaybe)
+
+data Range = Range
+  { startLine :: Int
+  , endLine   :: Int
+  }
+
+mkRange :: Int -> Int -> Maybe Range
+mkRange s e
+  | s > 0 && e > 0 && s <= e = Just (Range s e)
+  | otherwise = Nothing
 
 data InclusionSpec = InclusionSpec
   { include :: FilePath
   , snippet :: Maybe String
-  , range   :: Maybe (Int, Int)
+  , range   :: Maybe Range
   , dedent  :: Maybe Int
   }
 
-type Inclusion = ReaderT InclusionSpec IO
+data MissingRangePart = Start | End
+  deriving (Show, Eq)
 
-runInclusion :: InclusionSpec -> Inclusion a -> IO a
-runInclusion = flip runReaderT
+data InclusionError
+  = InvalidRange Int
+                 Int
+  | IncompleteRange MissingRangePart
+  deriving (Show, Eq)
 
-parseInclusion :: HashMap String String -> Maybe InclusionSpec
-parseInclusion attrs = do
-  include <- HM.lookup "include" attrs
-  return InclusionSpec {..}
+newtype Inclusion a = Inclusion
+  { runInclusion :: ReaderT InclusionSpec (ExceptT InclusionError IO) a
+  } deriving ( Functor
+             , Applicative
+             , Monad
+             , MonadIO
+             , MonadReader InclusionSpec
+             , MonadError InclusionError
+             )
+
+runInclusion' :: InclusionSpec -> Inclusion a -> IO (Either InclusionError a)
+runInclusion' spec action = runExceptT (runReaderT (runInclusion action) spec)
+
+parseInclusion ::
+     HashMap String String -> Either InclusionError (Maybe InclusionSpec)
+parseInclusion attrs =
+  case HM.lookup "include" attrs of
+    Just include -> do
+      range <- getRange
+      return (Just InclusionSpec {..})
+    Nothing -> return Nothing
   where
+    lookupInt name = HM.lookup name attrs >>= readMaybe
     snippet = HM.lookup "snippet" attrs
-    dedent = HM.lookup "dedent" attrs >>= readMaybe
-    range = do
-      start <- HM.lookup "startLine" attrs >>= readMaybe
-      end <- HM.lookup "endLine" attrs >>= readMaybe
-      if start <= end
-        then return (start, end)
-        else Nothing
+    dedent = lookupInt "dedent"
+    getRange =
+      case (lookupInt "startLine", lookupInt "endLine") of
+        (Just start, Just end) ->
+          maybe
+            (throwError (InvalidRange start end))
+            (return . Just)
+            (mkRange start end)
+        (Nothing, Just _) -> throwError (IncompleteRange Start)
+        (Just _, Nothing) -> throwError (IncompleteRange End)
+        (Nothing, Nothing) -> return Nothing
 
 readIncluded :: Inclusion String
-readIncluded = do
-  path <- asks include
-  lift (readFile path)
+readIncluded = liftIO . readFile =<< asks include
 
 filterLineRange :: String -> Inclusion String
-filterLineRange contents = do
-  r <- asks range
-  case r of
-    Just (start, end) ->
+filterLineRange contents =
+  asks range >>= \case
+    Just (Range start end) ->
       return
         (unlines (take (end - startIndex) (drop startIndex (lines contents))))
       where startIndex = pred start
@@ -59,12 +99,11 @@ onlySnippet contents = do
   s <- asks snippet
   case s of
     Just name ->
-      lines contents
-      & dropWhile (not . isSnippetStart)
-      & takeWhile (not . isSnippetEnd)
-      & drop 1
-      & unlines
-      & return
+      lines contents & dropWhile (not . isSnippetStart) &
+      takeWhile (not . isSnippetEnd) &
+      drop 1 &
+      unlines &
+      return
       where isSnippetTag tag line =
               (tag ++ " snippet " ++ name) `isInfixOf` line
             isSnippetStart = isSnippetTag "start"
@@ -90,13 +129,28 @@ filterAttributes = filter nonFilterAttribute
     nonFilterAttribute (key, _) = key `notElem` attributeNames
     attributeNames = ["include", "startLine", "endLine", "snippet", "dedent"]
 
+printAndFail :: InclusionError -> IO Block
+printAndFail = fail . formatError
+  where
+    formatError =
+      \case
+        InvalidRange start end ->
+          "Invalid range: " ++ show start ++ " to " ++ show end
+        IncompleteRange Start ->
+          "Incomplete range: \"startLine\" is missing"
+        IncompleteRange End ->
+          "Incomplete range: \"endLine\" is missing"
+
 includeCode :: Maybe Format -> Block -> IO Block
 includeCode _ cb@(CodeBlock (id', classes, attrs) _) =
   case parseInclusion (HM.fromList attrs) of
-    Just i -> do
-      contents <-
-        runInclusion i $
-        readIncluded >>= filterLineRange >>= onlySnippet >>= dedentLines
-      return (CodeBlock (id', classes, filterAttributes attrs) contents)
-    Nothing -> return cb
+    Right (Just spec) ->
+      runInclusion'
+        spec
+        (readIncluded >>= filterLineRange >>= onlySnippet >>= dedentLines) >>= \case
+        Left err -> printAndFail err
+        Right contents ->
+          return (CodeBlock (id', classes, filterAttributes attrs) contents)
+    Right Nothing -> return cb
+    Left err -> printAndFail err
 includeCode _ x = return x
