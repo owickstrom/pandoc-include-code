@@ -12,7 +12,6 @@ import           Control.Exception
 import           Control.Monad.Except
 import           Control.Monad.Reader
 import           Data.Char            (isSpace)
-import           Data.Function        ((&))
 import           Data.HashMap.Strict  (HashMap)
 import qualified Data.HashMap.Strict  as HM
 import           Data.List            (isInfixOf)
@@ -37,7 +36,9 @@ data InclusionSpec = InclusionSpec
   , dedent  :: Maybe Int
   }
 
-data MissingRangePart = Start | End
+data MissingRangePart
+  = Start
+  | End
   deriving (Show, Eq)
 
 data InclusionError
@@ -82,40 +83,39 @@ parseInclusion attrs =
         (Just _, Nothing) -> throwError (IncompleteRange End)
         (Nothing, Nothing) -> return Nothing
 
+type Lines = [String]
+
 readIncluded :: Inclusion String
 readIncluded = liftIO . readFile =<< asks include
 
-filterLineRange :: String -> Inclusion String
-filterLineRange contents =
+filterLineRange :: Lines -> Inclusion Lines
+filterLineRange ls =
   asks range >>= \case
     Just (Range start end) ->
-      return
-        (unlines (take (end - startIndex) (drop startIndex (lines contents))))
+      return (take (end - startIndex) (drop startIndex ls))
       where startIndex = pred start
-    Nothing -> return contents
+    Nothing -> return ls
 
-onlySnippet :: String -> Inclusion String
-onlySnippet contents = do
+onlySnippet :: Lines -> Inclusion Lines
+onlySnippet ls = do
   s <- asks snippet
   case s of
     Just name ->
-      lines contents & dropWhile (not . isSnippetStart) &
-      takeWhile (not . isSnippetEnd) &
-      drop 1 &
-      unlines &
-      return
+      return $
+      drop 1 $
+      takeWhile (not . isSnippetEnd) $ dropWhile (not . isSnippetStart) ls
       where isSnippetTag tag line =
               (tag ++ " snippet " ++ name) `isInfixOf` line
             isSnippetStart = isSnippetTag "start"
             isSnippetEnd = isSnippetTag "end"
-    Nothing -> return contents
+    Nothing -> return ls
 
-dedentLines :: String -> Inclusion String
-dedentLines contents = do
+dedentLines :: Lines -> Inclusion Lines
+dedentLines ls = do
   d <- asks dedent
   case d of
-    Just n  -> lines contents & map (dedentLine n) & unlines & return
-    Nothing -> return contents
+    Just n  -> return (map (dedentLine n) ls)
+    Nothing -> return ls
   where
     dedentLine 0 line = line
     dedentLine _ "" = ""
@@ -136,10 +136,14 @@ printAndFail = fail . formatError
       \case
         InvalidRange start end ->
           "Invalid range: " ++ show start ++ " to " ++ show end
-        IncompleteRange Start ->
-          "Incomplete range: \"startLine\" is missing"
-        IncompleteRange End ->
-          "Incomplete range: \"endLine\" is missing"
+        IncompleteRange Start -> "Incomplete range: \"startLine\" is missing"
+        IncompleteRange End -> "Incomplete range: \"endLine\" is missing"
+
+splitLines :: String -> Inclusion Lines
+splitLines = return . lines
+
+joinLines :: Lines -> Inclusion String
+joinLines = return . unlines
 
 -- | A Pandoc filter that includes code snippets from external files.
 includeCode :: Maybe Format -> Block -> IO Block
@@ -148,7 +152,9 @@ includeCode _ cb@(CodeBlock (id', classes, attrs) _) =
     Right (Just spec) ->
       runInclusion'
         spec
-        (readIncluded >>= filterLineRange >>= onlySnippet >>= dedentLines) >>= \case
+        (readIncluded >>= splitLines >>= filterLineRange >>= onlySnippet >>=
+         dedentLines >>=
+         joinLines) >>= \case
         Left err -> printAndFail err
         Right contents ->
           return (CodeBlock (id', classes, filterAttributes attrs) contents)

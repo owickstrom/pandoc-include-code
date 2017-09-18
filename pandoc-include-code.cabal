@@ -23,27 +23,27 @@ source-repository head
 library
     hs-source-dirs:  src
     exposed-modules: Text.Pandoc.Filter.IncludeCode
-    build-depends:   base   >= 4      && < 5
-                   , unordered-containers
+    build-depends:   base                 >= 4        && < 5
+                   , unordered-containers >= 0.2      && < 0.3
                    , process
                    , filepath
-                   , mtl
-                   , pandoc-types
+                   , mtl                  >= 2        && < 3
+                   , pandoc-types         >= 1.17 && < 1.18
 
 
 executable pandoc-include-code
     hs-source-dirs:  filter
     main-is:         Main.hs
-    build-depends:   base   >= 4      && < 5
-                   , pandoc-types
+    build-depends:   base                 >= 4        && < 5
+                   , pandoc-types         >= 1.17 && < 1.18
                    , pandoc-include-code
 
 test-suite filter-tests
     type:            exitcode-stdio-1.0
     hs-source-dirs:  test
     main-is:         Driver.hs
-    build-depends:   base   >= 4      && < 5
-                   , pandoc-types
+    build-depends:   base                 >= 4        && < 5
+                   , pandoc-types         >= 1.17 && < 1.18
                    , pandoc-include-code
                    , tasty
                    , tasty-hunit
