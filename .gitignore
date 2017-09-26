@@ -5,6 +5,7 @@ dist-newstyle
 .stack-work/
 .cabal-sandbox
 cabal.sandbox.config
+cabal.project.local
 .DS_Store
 *.swp
 *.keter
