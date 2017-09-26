@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                        #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase                 #-}
@@ -7,7 +8,11 @@
 module Text.Pandoc.Filter.IncludeCode
   ( includeCode
   ) where
-
+#if MIN_VERSION_base(4,8,0)
+#else
+import           Control.Applicative
+import           Data.Monoid
+#endif
 import           Control.Exception
 import           Control.Monad.Except
 import           Control.Monad.Reader
