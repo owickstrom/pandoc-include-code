@@ -58,6 +58,11 @@ in the dedent area).
     ```{include=docs/MyFile.hs dedent=4}
     ```
 
+### More Usage Examples
+
+* The blog post [Automating the Build of Your Technical Presentation](https://wickstrom.tech/programming/2017/09/24/automating-the-build-of-your-technical-presentation.html)
+  shows practical examples of how to use this filter.
+
 ## Install
 
 ```bash
