@@ -27,15 +27,15 @@ library
                    , unordered-containers >= 0.2      && < 0.3
                    , process
                    , filepath
-                   , mtl                  >= 2        && < 3
-                   , pandoc-types         >= 1.17 && < 1.18
+                   , mtl                  >= 2.2      && < 3
+                   , pandoc-types         >= 1.12     && < 1.18
 
 
 executable pandoc-include-code
     hs-source-dirs:  filter
     main-is:         Main.hs
     build-depends:   base                 >= 4        && < 5
-                   , pandoc-types         >= 1.17 && < 1.18
+                   , pandoc-types         >= 1.12     && < 1.18
                    , pandoc-include-code
 
 test-suite filter-tests
@@ -43,7 +43,7 @@ test-suite filter-tests
     hs-source-dirs:  test
     main-is:         Driver.hs
     build-depends:   base                 >= 4        && < 5
-                   , pandoc-types         >= 1.17 && < 1.18
+                   , pandoc-types         >= 1.12     && < 1.18
                    , pandoc-include-code
                    , tasty
                    , tasty-hunit
