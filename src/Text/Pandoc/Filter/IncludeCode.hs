@@ -3,6 +3,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE NamedFieldPuns             #-}
+{-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE RecordWildCards            #-}
 
 module Text.Pandoc.Filter.IncludeCode
@@ -13,12 +14,16 @@ module Text.Pandoc.Filter.IncludeCode
 import           Control.Applicative
 import           Data.Monoid
 #endif
+
 import           Control.Monad.Except
 import           Control.Monad.Reader
 import           Data.Char            (isSpace)
 import           Data.HashMap.Strict  (HashMap)
 import qualified Data.HashMap.Strict  as HM
 import           Data.List            (isInfixOf)
+import           Data.Text            (Text)
+import qualified Data.Text            as Text
+import qualified Data.Text.IO         as Text
 import           Text.Pandoc.JSON
 import           Text.Read            (readMaybe)
 
@@ -31,7 +36,7 @@ mkRange s e
 
 data InclusionSpec = InclusionSpec
   { include :: FilePath
-  , snippet :: Maybe String
+  , snippet :: Maybe Text
   , range   :: Maybe Range
   , dedent  :: Maybe Int
   }
@@ -70,7 +75,7 @@ parseInclusion attrs =
     Nothing -> return Nothing
   where
     lookupInt name = HM.lookup name attrs >>= readMaybe
-    snippet = HM.lookup "snippet" attrs
+    snippet = Text.pack <$> HM.lookup "snippet" attrs
     dedent = lookupInt "dedent"
     getRange =
       case (lookupInt "startLine", lookupInt "endLine") of
@@ -83,10 +88,10 @@ parseInclusion attrs =
         (Just _, Nothing) -> throwError (IncompleteRange End)
         (Nothing, Nothing) -> return Nothing
 
-type Lines = [String]
+type Lines = [Text]
 
-readIncluded :: Inclusion String
-readIncluded = liftIO . readFile =<< asks include
+readIncluded :: Inclusion Text
+readIncluded = liftIO . Text.readFile =<< asks include
 
 filterLineRange :: Lines -> Inclusion Lines
 filterLineRange ls =
@@ -96,6 +101,14 @@ filterLineRange ls =
       where startIndex = pred start
     Nothing -> return ls
 
+isSnippetTag :: Text -> Text -> Text -> Bool
+isSnippetTag tag name line =
+  mconcat [tag, " snippet ", name] `Text.isInfixOf` line
+
+isSnippetStart, isSnippetEnd :: Text -> Text -> Bool
+isSnippetStart = isSnippetTag "start"
+isSnippetEnd = isSnippetTag "end"
+
 onlySnippet :: Lines -> Inclusion Lines
 onlySnippet ls = do
   s <- asks snippet
@@ -103,11 +116,7 @@ onlySnippet ls = do
     Just name ->
       return $
       drop 1 $
-      takeWhile (not . isSnippetEnd) $ dropWhile (not . isSnippetStart) ls
-      where isSnippetTag tag line =
-              (tag ++ " snippet " ++ name) `isInfixOf` line
-            isSnippetStart = isSnippetTag "start"
-            isSnippetEnd = isSnippetTag "end"
+      takeWhile (not . isSnippetEnd name) $ dropWhile (not . isSnippetStart name) ls
     Nothing -> return ls
 
 dedentLines :: Lines -> Inclusion Lines
@@ -118,10 +127,12 @@ dedentLines ls = do
     Nothing -> return ls
   where
     dedentLine 0 line = line
-    dedentLine _ "" = ""
-    dedentLine n (c:cs)
-      | isSpace c = dedentLine (pred n) cs
-      | otherwise = c : cs
+    dedentLine n line =
+      case Text.uncons line of
+        Just (c, cs)
+          | isSpace c -> dedentLine (pred n) cs
+          | otherwise -> Text.cons c cs
+        Nothing -> ""
 
 filterAttributes :: [(String, String)] -> [(String, String)]
 filterAttributes = filter nonFilterAttribute
@@ -139,25 +150,30 @@ printAndFail = fail . formatError
         IncompleteRange Start -> "Incomplete range: \"startLine\" is missing"
         IncompleteRange End -> "Incomplete range: \"endLine\" is missing"
 
-splitLines :: String -> Inclusion Lines
-splitLines = return . lines
+splitLines :: Text -> Inclusion Lines
+splitLines = return . Text.lines
 
-joinLines :: Lines -> Inclusion String
-joinLines = return . unlines
+joinLines :: Lines -> Inclusion Text
+joinLines = return . Text.unlines
+
+allSteps :: Inclusion Text
+allSteps =
+  readIncluded
+  >>= splitLines
+  >>= filterLineRange
+  >>= onlySnippet
+  >>= dedentLines
+  >>= joinLines
 
 -- | A Pandoc filter that includes code snippets from external files.
 includeCode :: Maybe Format -> Block -> IO Block
 includeCode _ cb@(CodeBlock (id', classes, attrs) _) =
   case parseInclusion (HM.fromList attrs) of
     Right (Just spec) ->
-      runInclusion'
-        spec
-        (readIncluded >>= splitLines >>= filterLineRange >>= onlySnippet >>=
-         dedentLines >>=
-         joinLines) >>= \case
+      runInclusion' spec allSteps >>= \case
         Left err -> printAndFail err
         Right contents ->
-          return (CodeBlock (id', classes, filterAttributes attrs) contents)
+          return (CodeBlock (id', classes, filterAttributes attrs) (Text.unpack contents))
     Right Nothing -> return cb
     Left err -> printAndFail err
 includeCode _ x = return x
