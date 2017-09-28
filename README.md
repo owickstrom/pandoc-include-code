@@ -28,14 +28,26 @@ You can still use other attributes, and classes, to control the code blocks:
 
 ### Snippets
 
-There is support for delimited _snippets_. Use line comment of whatever kind
-you want, and enclose the snippet between `start snippet <name>` and
-`end snippet <name>`.
+There is support for delimited _snippets_. Use a line comment of
+whatever kind you want, and enclose the snippet between `start snippet
+<name>` and `end snippet <name>`.
 
     -- start snippet cool-thingy
     main =
       putStrLn "I explain some cool concept in Haskell code."
     -- end snippet cool-thingy
+
+Or why not some C code:
+
+    // start snippet wow
+    int main() {
+        printf("such performance");
+    }
+    // end snippet wow
+
+**NOTE:** There can only be whitespace and a newline _after_ the
+snippet name. This means that multi-line comments in C, Java, etc,
+will not work. Only single-line comments will.
 
 Then, in your code block, specify the snippet name:
 
