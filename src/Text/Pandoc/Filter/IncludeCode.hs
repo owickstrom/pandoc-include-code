@@ -13,21 +13,16 @@ module Text.Pandoc.Filter.IncludeCode
 import           Control.Applicative
 import           Data.Monoid
 #endif
-import           Control.Exception
 import           Control.Monad.Except
 import           Control.Monad.Reader
 import           Data.Char            (isSpace)
 import           Data.HashMap.Strict  (HashMap)
 import qualified Data.HashMap.Strict  as HM
 import           Data.List            (isInfixOf)
-import           Data.Maybe           (fromMaybe)
 import           Text.Pandoc.JSON
 import           Text.Read            (readMaybe)
 
-data Range = Range
-  { startLine :: Int
-  , endLine   :: Int
-  }
+data Range = Range Int Int
 
 mkRange :: Int -> Int -> Maybe Range
 mkRange s e
