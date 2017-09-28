@@ -1,5 +1,7 @@
 # Changelog
 
+* **1.1.0.0**
+  * Stricter checking of snippet name, fixes issue #3.
 * **1.0.1.0**
   * Loosen version constraints on dependencies. Most importantly, allow all 4.x
     versions of `base`.
