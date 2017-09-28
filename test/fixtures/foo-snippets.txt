@@ -1,0 +1,9 @@
+// start snippet foo-other
+foo-other
+// end snippet foo-other
+
+// (note the spaces after "foo" below, they are ok)
+
+// start snippet foo
+foo
+// end snippet foo

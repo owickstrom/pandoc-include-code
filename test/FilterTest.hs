@@ -42,6 +42,9 @@ tests =
     , testCase "includes snippet within start and end line" $
       includeCode "foo-snippet.txt" [("snippet", "foo"), ("startLine", "1"), ("endLine", "3")] @@?=
       codeBlock "foo\n"
+    , testCase "includes snippet by exact name, not prefix" $
+      includeCode "foo-snippets.txt" [("snippet", "foo")] @@?=
+      codeBlock "foo\n"
     , testCase "excludes snippet outside start and end line" $
       includeCode "foo-snippet.txt" [("snippet", "foo"), ("startLine", "2"), ("endLine", "3")] @@?=
       codeBlock ""

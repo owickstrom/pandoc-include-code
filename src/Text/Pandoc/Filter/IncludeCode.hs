@@ -103,7 +103,7 @@ filterLineRange ls =
 
 isSnippetTag :: Text -> Text -> Text -> Bool
 isSnippetTag tag name line =
-  mconcat [tag, " snippet ", name] `Text.isInfixOf` line
+  mconcat [tag, " snippet ", name] `Text.isSuffixOf` Text.strip line
 
 isSnippetStart, isSnippetEnd :: Text -> Text -> Bool
 isSnippetStart = isSnippetTag "start"
