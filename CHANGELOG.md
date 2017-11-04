@@ -1,5 +1,10 @@
 # Changelog
 
+* **1.2.0.0**
+  - Move `Range` to its own module (hiding the constructor)
+  - Setup automated release builds using Travis. Executables for Linux
+    and macOS now get published at
+    https://github.com/owickstrom/pandoc-include-code/releases.
 * **1.1.1.0**
   - Loosen constraint on `pandoc-types` to include `1.19`.
 * **1.1.0.0**
