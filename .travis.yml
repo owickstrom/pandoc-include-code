@@ -1,0 +1,44 @@
+language: c
+sudo: false
+cache:
+  apt: true
+  directories:
+  - "$HOME/.stack"
+  - "$TRAVIS_BUILD_DIR/.stack-work/install"
+addons:
+  apt:
+    packages:
+    - libgmp-dev
+matrix:
+  include:
+  - env: STACK_YAML=stack.yaml RELEASE_FN=ghc8-pandoc-1-19
+    compiler: ": #Pandoc 1.19"
+  - env: STACK_YAML=stack.yaml RELEASE_FN=ghc8-pandoc-1-19
+    compiler: ": #Pandoc 1.19"
+    os: osx
+before_install:
+- unset CC
+- export PATH=/opt/ghc/$GHCVER/bin:$PATH
+- mkdir -p ~/.local/bin
+- export PATH=$HOME/.local/bin:$PATH
+- if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then STACK_OS=osx-x86_64 ; fi
+- if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then STACK_OS=linux-x86_64 ; fi
+- travis_retry curl -L https://www.stackage.org/stack/$STACK_OS | tar xz --strip-components=1
+  -C ~/.local/bin
+- stack --no-terminal setup
+script:
+- stack --no-terminal test
+before_deploy:
+- stack --no-terminal install
+- tar czf "$TRAVIS_BUILD_DIR/pandoc-include-code-${TRAVIS_OS_NAME}-${RELEASE_FN}.tar.gz" -C "$HOME/.local/bin/"
+  "./pandoc-include-code"
+deploy:
+  provider: releases
+  api_key:
+    secure: KofZCUN1WFuFOvdf10ewF95m+AscPrgIQ3RTYpL0VX2ZuAhTsOFzQNRPRO5RXbNA0Y9M7kitA966/caVH8Ly8Z9A3hFzUOd2bDQLkpLLKw7dDujSOPZx9L/YMidT/A3kYheSg7YL6OziYY9Sb0y4xzfPkob6DAKos0YH1DBxY+spbhFx751gTC20IPfGsQ5HNdr5sebNiNogJydSNrFjJvkvYPmsoPUjnniJFgHUjm3rlH2+b6T354IWMlC/4gSaBSVtYFOzo36E96cqkSY5RXS067M80c3nZoSOYJi0qhkc+F2ZyGKF5q+QvA2CbEsw/si8UFC7iFM5sOZ8PU7Ws7h2EQ2QG5BDfiHuuD2NnJyo6YZW5DhmSv3lU4q5ScQjJ1Pi+YERS4sNdP1NQg0/AUvE6Pk60990cSX4x59Cvfq8s7Ks9cdcHiRgKH6X233l8D+EEyWrJyzs0bq+tTLzUQKswZEmUJgPLNaufENk0dxGSNBN6P1r9yCZxn0m2Dg3WVGo+3bsw2LYC2LoT+eTtNST4tC5IGmglgnnV+C17FSCrcZq1OAFlCUZ8tYWVK9j7HPZhdGjA3kdyV7/NQKMg540oApWP+WmFORWmd8gL318uZm6sdJmG6TEAPB86+84FCik6/GWey2y7uCCXu7YdPeVC9ucwvbI+SOkyoFK2Co=
+  file: "$TRAVIS_BUILD_DIR/pandoc-include-code-${TRAVIS_OS_NAME}-${RELEASE_FN}.tar.gz"
+  skip_cleanup: true
+  overwrite: true
+  on:
+    repo: owickstrom/pandoc-include-code
+    tags: true
