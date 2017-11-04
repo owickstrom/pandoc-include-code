@@ -27,7 +27,7 @@ import qualified Data.Text.IO             as Text
 import           Text.Pandoc.JSON
 import           Text.Read                (readMaybe)
 
-import           Text.Pandoc.Filter.Range (Range, mkRange)
+import           Text.Pandoc.Filter.Range (Range, mkRange, rangeEnd, rangeStart)
 
 data InclusionSpec = InclusionSpec
   { include :: FilePath
@@ -91,9 +91,9 @@ readIncluded = liftIO . Text.readFile =<< asks include
 filterLineRange :: Lines -> Inclusion Lines
 filterLineRange ls =
   asks range >>= \case
-    Just (Range start end) ->
-      return (take (end - startIndex) (drop startIndex ls))
-      where startIndex = pred start
+    Just range ->
+      return (take (rangeEnd range - startIndex) (drop startIndex ls))
+      where startIndex = pred (rangeStart range)
     Nothing -> return ls
 
 isSnippetTag :: Text -> Text -> Text -> Bool

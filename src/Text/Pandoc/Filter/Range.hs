@@ -1,7 +1,14 @@
 -- | A range that cannot be constructed with incorrect bounds.
-module Text.Pandoc.Filter.Range (Range, mkRange) where
+module Text.Pandoc.Filter.Range
+  ( Range
+  , rangeStart
+  , rangeEnd
+  , mkRange
+  ) where
 
-data Range = Range Int Int
+data Range = Range { rangeStart :: Int
+                   , rangeEnd   :: Int
+                   }
 
 mkRange :: Int -> Int -> Maybe Range
 mkRange s e
