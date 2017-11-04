@@ -17,22 +17,17 @@ import           Data.Monoid
 
 import           Control.Monad.Except
 import           Control.Monad.Reader
-import           Data.Char            (isSpace)
-import           Data.HashMap.Strict  (HashMap)
-import qualified Data.HashMap.Strict  as HM
-import           Data.List            (isInfixOf)
-import           Data.Text            (Text)
-import qualified Data.Text            as Text
-import qualified Data.Text.IO         as Text
+import           Data.Char                (isSpace)
+import           Data.HashMap.Strict      (HashMap)
+import qualified Data.HashMap.Strict      as HM
+import           Data.List                (isInfixOf)
+import           Data.Text                (Text)
+import qualified Data.Text                as Text
+import qualified Data.Text.IO             as Text
 import           Text.Pandoc.JSON
-import           Text.Read            (readMaybe)
+import           Text.Read                (readMaybe)
 
-data Range = Range Int Int
-
-mkRange :: Int -> Int -> Maybe Range
-mkRange s e
-  | s > 0 && e > 0 && s <= e = Just (Range s e)
-  | otherwise = Nothing
+import           Text.Pandoc.Filter.Range (Range, mkRange)
 
 data InclusionSpec = InclusionSpec
   { include :: FilePath

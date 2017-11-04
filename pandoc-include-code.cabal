@@ -23,6 +23,7 @@ source-repository head
 library
     hs-source-dirs:  src
     exposed-modules: Text.Pandoc.Filter.IncludeCode
+                     Text.Pandoc.Filter.Range
     build-depends:   base                 >= 4        && < 5
                    , unordered-containers >= 0.2      && < 0.3
                    , process
