@@ -77,6 +77,14 @@ in the dedent area).
 
 ## Install
 
+Executables for Linux and macOS are available in the [Releases
+page](https://github.com/owickstrom/pandoc-include-code/releases).
+
+### From Hackage
+
+If you'd rather install using `cabal` or `stack`, you can use the following
+command:
+
 ```bash
 cabal install pandoc-include-code
 ```
