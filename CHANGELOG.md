@@ -1,5 +1,7 @@
 # Changelog
 
+* **1.2.0.1**
+  - Fix compile error
 * **1.2.0.0**
   - Move `Range` to its own module (hiding the constructor)
   - Setup automated release builds using Travis. Executables for Linux
