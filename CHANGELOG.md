@@ -1,5 +1,7 @@
 # Changelog
 
+* **1.2.0.2**
+  - Replace bad `Setup.hs` script with default one
 * **1.2.0.1**
   - Fix compile error
 * **1.2.0.0**
