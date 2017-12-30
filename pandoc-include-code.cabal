@@ -43,6 +43,7 @@ executable pandoc-include-code
 test-suite filter-tests
     type:            exitcode-stdio-1.0
     hs-source-dirs:  test
+    other-modules:   FilterTest
     main-is:         Driver.hs
     build-depends:   base                 >= 4        && < 5
                    , pandoc-types         >= 1.12     && <= 1.19
