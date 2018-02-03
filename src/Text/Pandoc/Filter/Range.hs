@@ -1,17 +1,20 @@
 -- | A range that cannot be constructed with incorrect bounds.
 module Text.Pandoc.Filter.Range
-  ( Range
+  ( LineNumber
+  , Range
   , rangeStart
   , rangeEnd
   , mkRange
   ) where
 
-data Range = Range { rangeStart :: Int
-                   , rangeEnd   :: Int
+type LineNumber = Int
+
+data Range = Range { rangeStart :: LineNumber
+                   , rangeEnd   :: LineNumber
                    }
   deriving (Show, Eq)
 
-mkRange :: Int -> Int -> Maybe Range
+mkRange :: LineNumber -> LineNumber -> Maybe Range
 mkRange s e
   | s > 0 && e > 0 && s <= e = Just (Range s e)
   | otherwise = Nothing

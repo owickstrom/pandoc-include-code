@@ -20,6 +20,7 @@ import           Data.Monoid
 #endif
 import           Control.Monad.Except
 import           Control.Monad.Reader
+import           Control.Monad.State
 import           Data.Char                (isSpace)
 import           Data.HashMap.Strict      (HashMap)
 import qualified Data.HashMap.Strict      as HM
@@ -31,7 +32,8 @@ import qualified Data.Text.IO             as Text
 import           Text.Pandoc.JSON
 import           Text.Read                (readMaybe)
 
-import           Text.Pandoc.Filter.Range (Range, mkRange, rangeEnd, rangeStart)
+import           Text.Pandoc.Filter.Range (LineNumber, Range, mkRange, rangeEnd,
+                                           rangeStart)
 
 data InclusionMode
   = SnippetMode Text
@@ -51,24 +53,35 @@ data MissingRangePart
   deriving (Show, Eq)
 
 data InclusionError
-  = InvalidRange Int
-                 Int
+  = InvalidRange LineNumber
+                 LineNumber
   | IncompleteRange MissingRangePart
   | ConflictingModes [InclusionMode]
   deriving (Show, Eq)
 
+newtype InclusionState = InclusionState
+  { startLineNumber :: Maybe LineNumber
+  }
+
 newtype Inclusion a = Inclusion
-  { runInclusion :: ReaderT InclusionSpec (ExceptT InclusionError IO) a
+  { runInclusion :: ReaderT InclusionSpec (StateT InclusionState (ExceptT InclusionError IO)) a
   } deriving ( Functor
              , Applicative
              , Monad
              , MonadIO
              , MonadReader InclusionSpec
              , MonadError InclusionError
+             , MonadState InclusionState
              )
 
-runInclusion' :: InclusionSpec -> Inclusion a -> IO (Either InclusionError a)
-runInclusion' spec action = runExceptT (runReaderT (runInclusion action) spec)
+runInclusion' ::
+     InclusionSpec
+  -> Inclusion a
+  -> IO (Either InclusionError (a, InclusionState))
+runInclusion' spec action =
+  runExceptT (runStateT (runReaderT (runInclusion action) spec) initialState)
+  where
+    initialState = InclusionState {startLineNumber = Nothing}
 
 parseInclusion ::
      HashMap String String -> Either InclusionError (Maybe InclusionSpec)
@@ -100,6 +113,9 @@ parseInclusion attrs =
 
 type Lines = [Text]
 
+setStartLineNumber :: LineNumber -> Inclusion ()
+setStartLineNumber n = modify (\s -> s {startLineNumber = Just n})
+
 readIncluded :: Inclusion Text
 readIncluded = liftIO . Text.readFile =<< asks include
 
@@ -115,12 +131,14 @@ isSnippetEnd = isSnippetTag "end"
 includeByMode :: Lines -> Inclusion Lines
 includeByMode ls =
   asks mode >>= \case
-    SnippetMode name ->
-      return $
-      drop 1 $
-      takeWhile (not . isSnippetEnd name) $
-      dropWhile (not . isSnippetStart name) ls
-    RangeMode range ->
+    SnippetMode name -> do
+      let (before, start) = break (isSnippetStart name) ls
+          -- index +1 for line number, then +1 for snippet comment line, so +2:
+          startLine = length before + 2
+      setStartLineNumber startLine
+      return (takeWhile (not . isSnippetEnd name) (drop 1 start))
+    RangeMode range -> do
+      setStartLineNumber (rangeStart range)
       return (take (rangeEnd range - startIndex) (drop startIndex ls))
       where startIndex = pred (rangeStart range)
     EntireFileMode -> return ls
@@ -140,11 +158,18 @@ dedentLines ls = do
           | otherwise -> Text.cons c cs
         Nothing -> ""
 
-filterAttributes :: [(String, String)] -> [(String, String)]
-filterAttributes = filter nonFilterAttribute
+modifyAttributes ::
+     InclusionState -> [String] -> [(String, String)] -> [(String, String)]
+modifyAttributes InclusionState {startLineNumber} classes =
+  (++) extraAttrs . filter nonFilterAttribute
   where
     nonFilterAttribute (key, _) = key `notElem` attributeNames
     attributeNames = ["include", "startLine", "endLine", "snippet", "dedent"]
+    extraAttrs =
+      case startLineNumber of
+        Just n
+          | "numberLines" `elem` classes -> [("startFrom", show n)]
+        _ -> []
 
 printAndFail :: InclusionError -> IO a
 printAndFail = fail . formatError
@@ -173,11 +198,11 @@ includeCode' cb@(CodeBlock (id', classes, attrs) _) =
     Right (Just spec) ->
       runInclusion' spec allSteps >>= \case
         Left err -> return (Left err)
-        Right contents ->
+        Right (contents, state) ->
           return
             (Right
                (CodeBlock
-                  (id', classes, filterAttributes attrs)
+                  (id', classes, modifyAttributes state classes attrs)
                   (Text.unpack contents)))
     Right Nothing -> return (Right cb)
     Left err -> return (Left err)
