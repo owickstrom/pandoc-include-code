@@ -9,6 +9,7 @@ module Text.Pandoc.Filter.Range
 data Range = Range { rangeStart :: Int
                    , rangeEnd   :: Int
                    }
+  deriving (Show, Eq)
 
 mkRange :: Int -> Int -> Maybe Range
 mkRange s e

@@ -7,20 +7,24 @@
 {-# LANGUAGE RecordWildCards            #-}
 
 module Text.Pandoc.Filter.IncludeCode
-  ( includeCode
+  ( InclusionMode(..)
+  , InclusionError(..)
+  , includeCode
+  , includeCode'
   ) where
 #if MIN_VERSION_base(4,8,0)
+import           Control.Applicative      ((<|>))
 #else
 import           Control.Applicative
 import           Data.Monoid
 #endif
-
 import           Control.Monad.Except
 import           Control.Monad.Reader
 import           Data.Char                (isSpace)
 import           Data.HashMap.Strict      (HashMap)
 import qualified Data.HashMap.Strict      as HM
 import           Data.List                (isInfixOf)
+import           Data.Maybe               (catMaybes)
 import           Data.Text                (Text)
 import qualified Data.Text                as Text
 import qualified Data.Text.IO             as Text
@@ -29,10 +33,15 @@ import           Text.Read                (readMaybe)
 
 import           Text.Pandoc.Filter.Range (Range, mkRange, rangeEnd, rangeStart)
 
+data InclusionMode
+  = SnippetMode Text
+  | RangeMode Range
+  | EntireFileMode
+  deriving (Show, Eq)
+
 data InclusionSpec = InclusionSpec
   { include :: FilePath
-  , snippet :: Maybe Text
-  , range   :: Maybe Range
+  , mode    :: InclusionMode
   , dedent  :: Maybe Int
   }
 
@@ -45,6 +54,7 @@ data InclusionError
   = InvalidRange Int
                  Int
   | IncompleteRange MissingRangePart
+  | ConflictingModes [InclusionMode]
   deriving (Show, Eq)
 
 newtype Inclusion a = Inclusion
@@ -65,19 +75,24 @@ parseInclusion ::
 parseInclusion attrs =
   case HM.lookup "include" attrs of
     Just include -> do
-      range <- getRange
+      rangeMode <- parseRangeMode
+      mode <-
+        case catMaybes [rangeMode, snippetMode] of
+          []  -> return EntireFileMode
+          [m] -> return m
+          ms  -> throwError (ConflictingModes ms)
       return (Just InclusionSpec {..})
     Nothing -> return Nothing
   where
     lookupInt name = HM.lookup name attrs >>= readMaybe
-    snippet = Text.pack <$> HM.lookup "snippet" attrs
+    snippetMode = SnippetMode . Text.pack <$> HM.lookup "snippet" attrs
     dedent = lookupInt "dedent"
-    getRange =
+    parseRangeMode =
       case (lookupInt "startLine", lookupInt "endLine") of
         (Just start, Just end) ->
           maybe
             (throwError (InvalidRange start end))
-            (return . Just)
+            (return . Just . RangeMode)
             (mkRange start end)
         (Nothing, Just _) -> throwError (IncompleteRange Start)
         (Just _, Nothing) -> throwError (IncompleteRange End)
@@ -88,31 +103,27 @@ type Lines = [Text]
 readIncluded :: Inclusion Text
 readIncluded = liftIO . Text.readFile =<< asks include
 
-filterLineRange :: Lines -> Inclusion Lines
-filterLineRange ls =
-  asks range >>= \case
-    Just range ->
-      return (take (rangeEnd range - startIndex) (drop startIndex ls))
-      where startIndex = pred (rangeStart range)
-    Nothing -> return ls
-
 isSnippetTag :: Text -> Text -> Text -> Bool
 isSnippetTag tag name line =
   mconcat [tag, " snippet ", name] `Text.isSuffixOf` Text.strip line
 
 isSnippetStart, isSnippetEnd :: Text -> Text -> Bool
 isSnippetStart = isSnippetTag "start"
+
 isSnippetEnd = isSnippetTag "end"
 
-onlySnippet :: Lines -> Inclusion Lines
-onlySnippet ls = do
-  s <- asks snippet
-  case s of
-    Just name ->
+includeByMode :: Lines -> Inclusion Lines
+includeByMode ls =
+  asks mode >>= \case
+    SnippetMode name ->
       return $
       drop 1 $
-      takeWhile (not . isSnippetEnd name) $ dropWhile (not . isSnippetStart name) ls
-    Nothing -> return ls
+      takeWhile (not . isSnippetEnd name) $
+      dropWhile (not . isSnippetStart name) ls
+    RangeMode range ->
+      return (take (rangeEnd range - startIndex) (drop startIndex ls))
+      where startIndex = pred (rangeStart range)
+    EntireFileMode -> return ls
 
 dedentLines :: Lines -> Inclusion Lines
 dedentLines ls = do
@@ -135,7 +146,7 @@ filterAttributes = filter nonFilterAttribute
     nonFilterAttribute (key, _) = key `notElem` attributeNames
     attributeNames = ["include", "startLine", "endLine", "snippet", "dedent"]
 
-printAndFail :: InclusionError -> IO Block
+printAndFail :: InclusionError -> IO a
 printAndFail = fail . formatError
   where
     formatError =
@@ -144,6 +155,7 @@ printAndFail = fail . formatError
           "Invalid range: " ++ show start ++ " to " ++ show end
         IncompleteRange Start -> "Incomplete range: \"startLine\" is missing"
         IncompleteRange End -> "Incomplete range: \"endLine\" is missing"
+        ConflictingModes modes -> "Conflicting modes: " ++ show modes
 
 splitLines :: Text -> Inclusion Lines
 splitLines = return . Text.lines
@@ -153,22 +165,24 @@ joinLines = return . Text.unlines
 
 allSteps :: Inclusion Text
 allSteps =
-  readIncluded
-  >>= splitLines
-  >>= filterLineRange
-  >>= onlySnippet
-  >>= dedentLines
-  >>= joinLines
+  readIncluded >>= splitLines >>= includeByMode >>= dedentLines >>= joinLines
 
--- | A Pandoc filter that includes code snippets from external files.
-includeCode :: Maybe Format -> Block -> IO Block
-includeCode _ cb@(CodeBlock (id', classes, attrs) _) =
+includeCode' :: Block -> IO (Either InclusionError Block)
+includeCode' cb@(CodeBlock (id', classes, attrs) _) =
   case parseInclusion (HM.fromList attrs) of
     Right (Just spec) ->
       runInclusion' spec allSteps >>= \case
-        Left err -> printAndFail err
+        Left err -> return (Left err)
         Right contents ->
-          return (CodeBlock (id', classes, filterAttributes attrs) (Text.unpack contents))
-    Right Nothing -> return cb
-    Left err -> printAndFail err
-includeCode _ x = return x
+          return
+            (Right
+               (CodeBlock
+                  (id', classes, filterAttributes attrs)
+                  (Text.unpack contents)))
+    Right Nothing -> return (Right cb)
+    Left err -> return (Left err)
+includeCode' x = return (Right x)
+
+-- | A Pandoc filter that includes code snippets from external files.
+includeCode :: Maybe Format -> Block -> IO Block
+includeCode _ = includeCode' >=> either printAndFail return

@@ -50,3 +50,6 @@ test-suite filter-tests
                    , pandoc-include-code
                    , tasty
                    , tasty-hunit
+                   , tasty-hspec
+                   , hspec
+                   , hspec-expectations
