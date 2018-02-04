@@ -1,5 +1,9 @@
 # Changelog
 
+* **1.3.0.0**
+  - "Snippet mode" and "range mode" can no longer be used together
+  - Using the `numberLines` class sets the `startFrom` attribute for correct
+    line numbering
 * **1.2.0.2**
   - Replace bad `Setup.hs` script with default one
 * **1.2.0.1**
