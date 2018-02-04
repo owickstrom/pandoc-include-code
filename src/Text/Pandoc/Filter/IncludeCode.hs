@@ -7,32 +7,43 @@
 {-# LANGUAGE RecordWildCards            #-}
 
 module Text.Pandoc.Filter.IncludeCode
-  ( includeCode
+  ( InclusionMode(..)
+  , InclusionError(..)
+  , includeCode
+  , includeCode'
   ) where
 #if MIN_VERSION_base(4,8,0)
+import           Control.Applicative      ((<|>))
 #else
 import           Control.Applicative
 import           Data.Monoid
 #endif
-
 import           Control.Monad.Except
 import           Control.Monad.Reader
+import           Control.Monad.State
 import           Data.Char                (isSpace)
 import           Data.HashMap.Strict      (HashMap)
 import qualified Data.HashMap.Strict      as HM
 import           Data.List                (isInfixOf)
+import           Data.Maybe               (catMaybes)
 import           Data.Text                (Text)
 import qualified Data.Text                as Text
 import qualified Data.Text.IO             as Text
 import           Text.Pandoc.JSON
 import           Text.Read                (readMaybe)
 
-import           Text.Pandoc.Filter.Range (Range, mkRange, rangeEnd, rangeStart)
+import           Text.Pandoc.Filter.Range (LineNumber, Range, mkRange, rangeEnd,
+                                           rangeStart)
+
+data InclusionMode
+  = SnippetMode Text
+  | RangeMode Range
+  | EntireFileMode
+  deriving (Show, Eq)
 
 data InclusionSpec = InclusionSpec
   { include :: FilePath
-  , snippet :: Maybe Text
-  , range   :: Maybe Range
+  , mode    :: InclusionMode
   , dedent  :: Maybe Int
   }
 
@@ -42,42 +53,59 @@ data MissingRangePart
   deriving (Show, Eq)
 
 data InclusionError
-  = InvalidRange Int
-                 Int
+  = InvalidRange LineNumber
+                 LineNumber
   | IncompleteRange MissingRangePart
+  | ConflictingModes [InclusionMode]
   deriving (Show, Eq)
 
+newtype InclusionState = InclusionState
+  { startLineNumber :: Maybe LineNumber
+  }
+
 newtype Inclusion a = Inclusion
-  { runInclusion :: ReaderT InclusionSpec (ExceptT InclusionError IO) a
+  { runInclusion :: ReaderT InclusionSpec (StateT InclusionState (ExceptT InclusionError IO)) a
   } deriving ( Functor
              , Applicative
              , Monad
              , MonadIO
              , MonadReader InclusionSpec
              , MonadError InclusionError
+             , MonadState InclusionState
              )
 
-runInclusion' :: InclusionSpec -> Inclusion a -> IO (Either InclusionError a)
-runInclusion' spec action = runExceptT (runReaderT (runInclusion action) spec)
+runInclusion' ::
+     InclusionSpec
+  -> Inclusion a
+  -> IO (Either InclusionError (a, InclusionState))
+runInclusion' spec action =
+  runExceptT (runStateT (runReaderT (runInclusion action) spec) initialState)
+  where
+    initialState = InclusionState {startLineNumber = Nothing}
 
 parseInclusion ::
      HashMap String String -> Either InclusionError (Maybe InclusionSpec)
 parseInclusion attrs =
   case HM.lookup "include" attrs of
     Just include -> do
-      range <- getRange
+      rangeMode <- parseRangeMode
+      mode <-
+        case catMaybes [rangeMode, snippetMode] of
+          []  -> return EntireFileMode
+          [m] -> return m
+          ms  -> throwError (ConflictingModes ms)
       return (Just InclusionSpec {..})
     Nothing -> return Nothing
   where
     lookupInt name = HM.lookup name attrs >>= readMaybe
-    snippet = Text.pack <$> HM.lookup "snippet" attrs
+    snippetMode = SnippetMode . Text.pack <$> HM.lookup "snippet" attrs
     dedent = lookupInt "dedent"
-    getRange =
+    parseRangeMode =
       case (lookupInt "startLine", lookupInt "endLine") of
         (Just start, Just end) ->
           maybe
             (throwError (InvalidRange start end))
-            (return . Just)
+            (return . Just . RangeMode)
             (mkRange start end)
         (Nothing, Just _) -> throwError (IncompleteRange Start)
         (Just _, Nothing) -> throwError (IncompleteRange End)
@@ -85,16 +113,11 @@ parseInclusion attrs =
 
 type Lines = [Text]
 
+setStartLineNumber :: LineNumber -> Inclusion ()
+setStartLineNumber n = modify (\s -> s {startLineNumber = Just n})
+
 readIncluded :: Inclusion Text
 readIncluded = liftIO . Text.readFile =<< asks include
-
-filterLineRange :: Lines -> Inclusion Lines
-filterLineRange ls =
-  asks range >>= \case
-    Just range ->
-      return (take (rangeEnd range - startIndex) (drop startIndex ls))
-      where startIndex = pred (rangeStart range)
-    Nothing -> return ls
 
 isSnippetTag :: Text -> Text -> Text -> Bool
 isSnippetTag tag name line =
@@ -102,17 +125,23 @@ isSnippetTag tag name line =
 
 isSnippetStart, isSnippetEnd :: Text -> Text -> Bool
 isSnippetStart = isSnippetTag "start"
+
 isSnippetEnd = isSnippetTag "end"
 
-onlySnippet :: Lines -> Inclusion Lines
-onlySnippet ls = do
-  s <- asks snippet
-  case s of
-    Just name ->
-      return $
-      drop 1 $
-      takeWhile (not . isSnippetEnd name) $ dropWhile (not . isSnippetStart name) ls
-    Nothing -> return ls
+includeByMode :: Lines -> Inclusion Lines
+includeByMode ls =
+  asks mode >>= \case
+    SnippetMode name -> do
+      let (before, start) = break (isSnippetStart name) ls
+          -- index +1 for line number, then +1 for snippet comment line, so +2:
+          startLine = length before + 2
+      setStartLineNumber startLine
+      return (takeWhile (not . isSnippetEnd name) (drop 1 start))
+    RangeMode range -> do
+      setStartLineNumber (rangeStart range)
+      return (take (rangeEnd range - startIndex) (drop startIndex ls))
+      where startIndex = pred (rangeStart range)
+    EntireFileMode -> return ls
 
 dedentLines :: Lines -> Inclusion Lines
 dedentLines ls = do
@@ -129,13 +158,20 @@ dedentLines ls = do
           | otherwise -> Text.cons c cs
         Nothing -> ""
 
-filterAttributes :: [(String, String)] -> [(String, String)]
-filterAttributes = filter nonFilterAttribute
+modifyAttributes ::
+     InclusionState -> [String] -> [(String, String)] -> [(String, String)]
+modifyAttributes InclusionState {startLineNumber} classes =
+  (++) extraAttrs . filter nonFilterAttribute
   where
     nonFilterAttribute (key, _) = key `notElem` attributeNames
     attributeNames = ["include", "startLine", "endLine", "snippet", "dedent"]
+    extraAttrs =
+      case startLineNumber of
+        Just n
+          | "numberLines" `elem` classes -> [("startFrom", show n)]
+        _ -> []
 
-printAndFail :: InclusionError -> IO Block
+printAndFail :: InclusionError -> IO a
 printAndFail = fail . formatError
   where
     formatError =
@@ -144,6 +180,7 @@ printAndFail = fail . formatError
           "Invalid range: " ++ show start ++ " to " ++ show end
         IncompleteRange Start -> "Incomplete range: \"startLine\" is missing"
         IncompleteRange End -> "Incomplete range: \"endLine\" is missing"
+        ConflictingModes modes -> "Conflicting modes: " ++ show modes
 
 splitLines :: Text -> Inclusion Lines
 splitLines = return . Text.lines
@@ -153,22 +190,24 @@ joinLines = return . Text.unlines
 
 allSteps :: Inclusion Text
 allSteps =
-  readIncluded
-  >>= splitLines
-  >>= filterLineRange
-  >>= onlySnippet
-  >>= dedentLines
-  >>= joinLines
+  readIncluded >>= splitLines >>= includeByMode >>= dedentLines >>= joinLines
 
--- | A Pandoc filter that includes code snippets from external files.
-includeCode :: Maybe Format -> Block -> IO Block
-includeCode _ cb@(CodeBlock (id', classes, attrs) _) =
+includeCode' :: Block -> IO (Either InclusionError Block)
+includeCode' cb@(CodeBlock (id', classes, attrs) _) =
   case parseInclusion (HM.fromList attrs) of
     Right (Just spec) ->
       runInclusion' spec allSteps >>= \case
-        Left err -> printAndFail err
-        Right contents ->
-          return (CodeBlock (id', classes, filterAttributes attrs) (Text.unpack contents))
-    Right Nothing -> return cb
-    Left err -> printAndFail err
-includeCode _ x = return x
+        Left err -> return (Left err)
+        Right (contents, state) ->
+          return
+            (Right
+               (CodeBlock
+                  (id', classes, modifyAttributes state classes attrs)
+                  (Text.unpack contents)))
+    Right Nothing -> return (Right cb)
+    Left err -> return (Left err)
+includeCode' x = return (Right x)
+
+-- | A Pandoc filter that includes code snippets from external files.
+includeCode :: Maybe Format -> Block -> IO Block
+includeCode _ = includeCode' >=> either printAndFail return

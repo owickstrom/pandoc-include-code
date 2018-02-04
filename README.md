@@ -70,6 +70,16 @@ in the dedent area).
     ```{include=docs/MyFile.hs dedent=4}
     ```
 
+### Conflicting Modes
+
+"Snippet mode" and "range mode" cannot be used together.
+
+### Line Numbers
+
+If you include the `numberLines` class in your code block, and use `include`,
+the `startFrom` attribute will be added with respect to the included code's
+location in the source file.
+
 ### More Usage Examples
 
 * The blog post [Automating the Build of Your Technical Presentation](https://wickstrom.tech/programming/2017/09/24/automating-the-build-of-your-technical-presentation.html)
