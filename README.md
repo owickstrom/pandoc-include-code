@@ -126,6 +126,30 @@ If you have installed from sources, and you have `~/.local/bin` on your
 pandoc --filter pandoc-include-code input.md output.html
 ```
 
+## Usage with Hakyll
+
+If you are using the [Hakyll](https://jaspervdj.be/hakyll/) static site generator, you can use the filter via [unixFilter](https://hackage.haskell.org/package/hakyll/docs/Hakyll-Core-UnixFilter.html).
+
+Make sure you have `pandoc` and `pandoc-include-code` added to your project dependencies (or available on your `PATH`), then define a custom Hakyll compiler:
+
+```haskell
+pandocCompilerIncludeCode :: Compiler (Item String)
+pandocCompilerIncludeCode = getResourceString
+    >>= withItemBody (unixFilter "pandoc" ["--filter", "pandoc-include-code"])
+    -- Alternatively, if using stack, replace with:
+    -- unixFilter "stack" ["exec", "pandoc", "--", "--filter", "pandoc-include-code"]
+```
+
+And use it in your Hakyll rules:
+
+```haskell
+match "*.md" $ do
+  route $ setExtension "html"
+  compile $ pandocCompilerIncludeCode
+      >>= loadAndApplyTemplate "templates/default.html" defaultContext
+      >>= relativizeUrls
+```
+
 ## Changelog
 
 [CHANGELOG.md](CHANGELOG.md)
