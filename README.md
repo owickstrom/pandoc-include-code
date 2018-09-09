@@ -128,26 +128,34 @@ pandoc --filter pandoc-include-code input.md output.html
 
 ## Usage with Hakyll
 
-If you are using the [Hakyll](https://jaspervdj.be/hakyll/) static site generator, you can use the filter via [unixFilter](https://hackage.haskell.org/package/hakyll/docs/Hakyll-Core-UnixFilter.html).
+If you are using the [Hakyll](https://jaspervdj.be/hakyll/) static site generator, you can use the filter by importing it as a library and using the snippet below.
 
-Make sure you have `pandoc` and `pandoc-include-code` added to your project dependencies (or available on your `PATH`), then define a custom Hakyll compiler:
+Add `pandoc`, `pandoc-types`, and `pandoc-include-code` to your project dependencies, then define a custom Hakyll compiler using a Pandoc transform:
 
 ```haskell
-pandocCompilerIncludeCode :: Compiler (Item String)
-pandocCompilerIncludeCode = getResourceString
-    >>= withItemBody (unixFilter "pandoc" ["--filter", "pandoc-include-code"])
-    -- Alternatively, if using stack, replace with:
-    -- unixFilter "stack" ["exec", "pandoc", "--", "--filter", "pandoc-include-code"]
+import Text.Pandoc (Format (..), Pandoc)
+import Text.Pandoc.Walk (walkM)
+import Text.Pandoc.Filter.IncludeCode (includeCode)
+
+includeCodeTransform :: Pandoc -> IO Pandoc
+includeCodeTransform = walkM (includeCode (Just (Format "html5")))
+
+includeCodePandocCompiler :: Compiler (Item String)
+includeCodePandocCompiler =
+  pandocCompilerWithTransformM
+    defaultHakyllReaderOptions
+    defaultHakyllWriterOptions
+    (unsafeCompiler . includeCodeTransform)
 ```
 
-And use it in your Hakyll rules:
+You can now use `includeCodePandocCompiler` instead of the default `pandocCompiler` in your Hakyll rules:
 
 ```haskell
 match "*.md" $ do
   route $ setExtension "html"
-  compile $ pandocCompilerIncludeCode
-      >>= loadAndApplyTemplate "templates/default.html" defaultContext
-      >>= relativizeUrls
+  compile $ includeCodePandocCompiler
+    >>= loadAndApplyTemplate "templates/default.html" defaultContext
+    >>= relativizeUrls
 ```
 
 ## Changelog
