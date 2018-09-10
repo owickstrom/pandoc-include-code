@@ -126,6 +126,38 @@ If you have installed from sources, and you have `~/.local/bin` on your
 pandoc --filter pandoc-include-code input.md output.html
 ```
 
+## Usage with Hakyll
+
+If you are using the [Hakyll](https://jaspervdj.be/hakyll/) static site generator, you can use the filter by importing it as a library and using the snippet below.
+
+Add `pandoc`, `pandoc-types`, and `pandoc-include-code` to your project dependencies, then define a custom Hakyll compiler using a Pandoc transform:
+
+```haskell
+import Text.Pandoc (Format (..), Pandoc)
+import Text.Pandoc.Walk (walkM)
+import Text.Pandoc.Filter.IncludeCode (includeCode)
+
+includeCodeTransform :: Pandoc -> IO Pandoc
+includeCodeTransform = walkM (includeCode (Just (Format "html5")))
+
+includeCodePandocCompiler :: Compiler (Item String)
+includeCodePandocCompiler =
+  pandocCompilerWithTransformM
+    defaultHakyllReaderOptions
+    defaultHakyllWriterOptions
+    (unsafeCompiler . includeCodeTransform)
+```
+
+You can now use `includeCodePandocCompiler` instead of the default `pandocCompiler` in your Hakyll rules:
+
+```haskell
+match "*.md" $ do
+  route $ setExtension "html"
+  compile $ includeCodePandocCompiler
+    >>= loadAndApplyTemplate "templates/default.html" defaultContext
+    >>= relativizeUrls
+```
+
 ## Changelog
 
 [CHANGELOG.md](CHANGELOG.md)
