@@ -75,4 +75,7 @@ tests =
         ["numberLines"]
         [("snippet", "foo")] `succeedsWith`
       CodeBlock ("", ["numberLines"], [("startFrom", "2")]) "foo\n"
+    , testCase "doesn't include nested snippet comments" $
+      includeCode "nested-snippets.txt" [] [("snippet", "global")] `succeedsWith`
+      codeBlock "global text\nnested text\n"
     ]

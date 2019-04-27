@@ -1,0 +1,6 @@
+// start snippet global
+global text
+// start snippet nested
+nested text
+// end snippet nested
+// end snippet global

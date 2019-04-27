@@ -119,9 +119,13 @@ setStartLineNumber n = modify (\s -> s {startLineNumber = Just n})
 readIncluded :: Inclusion Text
 readIncluded = liftIO . Text.readFile =<< asks include
 
+makeSnippetPrefix :: Text -> Text
+makeSnippetPrefix tag = mconcat [tag, " snippet "]
+
 isSnippetTag :: Text -> Text -> Text -> Bool
 isSnippetTag tag name line =
-  mconcat [tag, " snippet ", name] `Text.isSuffixOf` Text.strip line
+  mconcat [prefix, name] `Text.isSuffixOf` Text.strip line
+  where prefix = makeSnippetPrefix tag
 
 isSnippetStart, isSnippetEnd :: Text -> Text -> Bool
 isSnippetStart = isSnippetTag "start"
@@ -142,6 +146,13 @@ includeByMode ls =
       return (take (rangeEnd range - startIndex) (drop startIndex ls))
       where startIndex = pred (rangeStart range)
     EntireFileMode -> return ls
+
+removeSnippetComments :: Lines -> Inclusion Lines
+removeSnippetComments ls =
+  return $ filter (not . hasSnippetPrefix) ls
+  where
+    hasSnippetPrefix line = any (`Text.isInfixOf` line) snippetPrefixes
+    snippetPrefixes = map makeSnippetPrefix ["start", "end"]
 
 dedentLines :: Lines -> Inclusion Lines
 dedentLines ls = do
@@ -190,7 +201,7 @@ joinLines = return . Text.unlines
 
 allSteps :: Inclusion Text
 allSteps =
-  readIncluded >>= splitLines >>= includeByMode >>= dedentLines >>= joinLines
+  readIncluded >>= splitLines >>= includeByMode >>= removeSnippetComments >>= dedentLines >>= joinLines
 
 includeCode' :: Block -> IO (Either InclusionError Block)
 includeCode' cb@(CodeBlock (id', classes, attrs) _) =
