@@ -8,7 +8,7 @@ description:
 author:              Oskar Wickström
 maintainer:          Oskar Wickström
 homepage:	           https://github.com/owickstrom/pandoc-include-code
-version:             1.3.0.0
+version:             1.4.0.0
 cabal-version:       >= 1.8
 build-type:          Simple
 category:            Documentation

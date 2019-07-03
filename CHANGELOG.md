@@ -1,5 +1,7 @@
 # Changelog
 
+* **1.4.0.0**
+  - Use data files for test fixtures, fixing Nixpkgs test problem
 * **1.3.0.0**
   - "Snippet mode" and "range mode" can no longer be used together
   - Using the `numberLines` class sets the `startFrom` attribute for correct
