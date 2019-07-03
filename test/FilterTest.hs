@@ -1,13 +1,15 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase    #-}
 {-# LANGUAGE TupleSections #-}
 
 module FilterTest where
 
-import Test.Tasty
-import Test.Tasty.HUnit
+import           Test.Tasty
+import           Test.Tasty.HUnit
 
 import qualified Text.Pandoc.Filter.IncludeCode as Filter
-import Text.Pandoc.JSON
+import           Text.Pandoc.JSON
+
+import           Paths_pandoc_include_code
 
 fails a =
   a >>= \case
@@ -25,12 +27,13 @@ includeCode ::
   -> [String]
   -> [(String, String)]
   -> IO (Either Filter.InclusionError Block)
-includeCode fixtureName classes attrs =
+includeCode fixtureName classes attrs = do
+  fname <- getDataFileName ("test/fixtures/" ++ fixtureName)
   Filter.includeCode'
     (CodeBlock
        ( ""
        , classes
-       , mconcat [[("include", "test/fixtures/" ++ fixtureName)], attrs])
+       , mconcat [[("include", fname)], attrs])
        "")
 
 noRange = (Nothing, Nothing)

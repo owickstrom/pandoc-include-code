@@ -7,7 +7,7 @@ description:
   together with preformatted HTML-like sources, in Pandoc.
 author:              Oskar Wickström
 maintainer:          Oskar Wickström
-homepage:	     https://github.com/owickstrom/pandoc-include-code
+homepage:	           https://github.com/owickstrom/pandoc-include-code
 version:             1.3.0.0
 cabal-version:       >= 1.8
 build-type:          Simple
@@ -15,7 +15,12 @@ category:            Documentation
 license:             MPL-2.0
 license-file:        LICENSE
 extra-source-files:  CHANGELOG.md
-                     test/fixtures/*.txt
+data-files:
+  test/fixtures/foo-snippet.txt
+  test/fixtures/foo-snippets.txt
+  test/fixtures/indents.txt
+  test/fixtures/some-text.txt
+
 
 source-repository head
   type:     git
@@ -29,7 +34,7 @@ library
                    , unordered-containers >= 0.2      && < 0.3
                    , process
                    , filepath
-                   , text                 >= 1.2      && < 1.3
+                   , text                 >= 1.2      && < 2
                    , mtl                  >= 2.2      && < 3
                    , pandoc-types         >= 1.12     && <= 1.19
 
@@ -45,6 +50,7 @@ test-suite filter-tests
     type:            exitcode-stdio-1.0
     hs-source-dirs:  test
     other-modules:   FilterTest
+                   , Paths_pandoc_include_code
     main-is:         Driver.hs
     build-depends:   base                 >= 4        && < 5
                    , pandoc-types         >= 1.12     && <= 1.19
