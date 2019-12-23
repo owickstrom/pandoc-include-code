@@ -42,7 +42,10 @@ library
 executable pandoc-include-code
     hs-source-dirs:  filter
     main-is:         Main.hs
+    other-modules:   Paths_pandoc_include_code
     build-depends:   base                 >= 4        && < 5
+                   , filepath
+                   , text                 >= 1.2      && < 2
                    , pandoc-types         >= 1.20     && <= 1.20
                    , pandoc-include-code
 
