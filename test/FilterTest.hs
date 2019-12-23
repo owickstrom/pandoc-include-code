@@ -1,4 +1,5 @@
 {-# LANGUAGE LambdaCase    #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections #-}
 
 module FilterTest where
@@ -8,6 +9,8 @@ import           Test.Tasty.HUnit
 
 import qualified Text.Pandoc.Filter.IncludeCode as Filter
 import           Text.Pandoc.JSON
+import           Data.Text (Text)
+import qualified Data.Text as Text
 
 import           Paths_pandoc_include_code
 
@@ -24,11 +27,11 @@ type Formatted = Bool
 
 includeCode ::
      String
-  -> [String]
-  -> [(String, String)]
+  -> [Text]
+  -> [(Text, Text)]
   -> IO (Either Filter.InclusionError Block)
 includeCode fixtureName classes attrs = do
-  fname <- getDataFileName ("test/fixtures/" ++ fixtureName)
+  fname <- Text.pack <$> getDataFileName ("test/fixtures/" ++ fixtureName)
   Filter.includeCode'
     (CodeBlock
        ( ""
@@ -38,7 +41,7 @@ includeCode fixtureName classes attrs = do
 
 noRange = (Nothing, Nothing)
 
-codeBlock :: String -> Block
+codeBlock :: Text -> Block
 codeBlock = CodeBlock ("", [], [])
 
 tests =
