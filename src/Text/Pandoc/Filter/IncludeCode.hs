@@ -84,10 +84,11 @@ runInclusion' spec action =
     initialState = InclusionState {startLineNumber = Nothing}
 
 parseInclusion ::
-     HashMap String String -> Either InclusionError (Maybe InclusionSpec)
+     HashMap Text Text -> Either InclusionError (Maybe InclusionSpec)
 parseInclusion attrs =
   case HM.lookup "include" attrs of
-    Just include -> do
+    Just tinclude -> do
+      let include = Text.unpack tinclude
       rangeMode <- parseRangeMode
       mode <-
         case catMaybes [rangeMode, snippetMode] of
@@ -97,8 +98,8 @@ parseInclusion attrs =
       return (Just InclusionSpec {..})
     Nothing -> return Nothing
   where
-    lookupInt name = HM.lookup name attrs >>= readMaybe
-    snippetMode = SnippetMode . Text.pack <$> HM.lookup "snippet" attrs
+    lookupInt name = HM.lookup name attrs >>= readMaybe . Text.unpack
+    snippetMode = SnippetMode <$> HM.lookup "snippet" attrs
     dedent = lookupInt "dedent"
     parseRangeMode =
       case (lookupInt "startLine", lookupInt "endLine") of
@@ -159,7 +160,7 @@ dedentLines ls = do
         Nothing -> ""
 
 modifyAttributes ::
-     InclusionState -> [String] -> [(String, String)] -> [(String, String)]
+     InclusionState -> [Text] -> [(Text ,Text)] -> [(Text, Text)]
 modifyAttributes InclusionState {startLineNumber} classes =
   (++) extraAttrs . filter nonFilterAttribute
   where
@@ -168,7 +169,7 @@ modifyAttributes InclusionState {startLineNumber} classes =
     extraAttrs =
       case startLineNumber of
         Just n
-          | "numberLines" `elem` classes -> [("startFrom", show n)]
+          | "numberLines" `elem` classes -> [("startFrom", Text.pack (show n))]
         _ -> []
 
 printAndFail :: InclusionError -> IO a
@@ -203,7 +204,7 @@ includeCode' cb@(CodeBlock (id', classes, attrs) _) =
             (Right
                (CodeBlock
                   (id', classes, modifyAttributes state classes attrs)
-                  (Text.unpack contents)))
+                  contents))
     Right Nothing -> return (Right cb)
     Left err -> return (Left err)
 includeCode' x = return (Right x)
