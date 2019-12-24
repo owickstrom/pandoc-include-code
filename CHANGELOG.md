@@ -1,5 +1,7 @@
 # Changelog
 
+* **1.5.0.0**
+  - Support Pandoc 2.8, thereby requiring `pandoc-types == 1.20`
 * **1.4.0.0**
   - Use data files for test fixtures, fixing Nixpkgs test problem
 * **1.3.0.0**
