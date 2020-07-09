@@ -36,7 +36,7 @@ library
                    , filepath
                    , text                 >= 1.2      && < 2
                    , mtl                  >= 2.2      && < 3
-                   , pandoc-types         >= 1.20     && <= 1.20
+                   , pandoc-types         >= 1.21     && <= 1.21
 
 
 executable pandoc-include-code
@@ -44,7 +44,7 @@ executable pandoc-include-code
     main-is:         Main.hs
     other-modules:   Paths_pandoc_include_code
     build-depends:   base                 >= 4        && < 5
-                   , pandoc-types         >= 1.20     && <= 1.20
+                   , pandoc-types         >= 1.21     && <= 1.21
                    , pandoc-include-code
 
 test-suite filter-tests
