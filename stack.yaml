@@ -1,4 +1,2 @@
-resolver: lts-13.26
+resolver: nightly-2020-06-29 # GHC 8.10.1
 
-extra-deps:
-  - pandoc-types-1.20@sha256:8393b1a73b8a6a1f3feaeb3a6592c176461082c3e4d897f1b316b1a58dd84c39,3999
