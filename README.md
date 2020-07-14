@@ -93,6 +93,14 @@ location in the source file.
 Executables for Linux and macOS are available in the [Releases
 page](https://github.com/owickstrom/pandoc-include-code/releases).
 
+### From Homebrew
+
+You can use [Homebrew](https://brew.sh) to install this filter:
+
+```bash
+brew install pandoc-include-code
+```
+
 ### From Hackage
 
 If you'd rather install using `cabal` or `stack`, you can use the following
