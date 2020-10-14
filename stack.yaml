@@ -1,2 +1,4 @@
-resolver: nightly-2020-06-29 # GHC 8.10.1
+resolver: nightly-2020-10-13 # GHC 8.10.2
 
+# GHC 8.10.2 is unreliable on Windows
+compiler: ghc-8.10.1
