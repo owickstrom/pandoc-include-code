@@ -37,6 +37,7 @@ library
                    , text                 >= 1.2      && < 2
                    , mtl                  >= 2.2      && < 3
                    , pandoc-types         >= 1.22     && <= 1.22
+                   , containers
 
 
 executable pandoc-include-code

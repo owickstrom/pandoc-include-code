@@ -83,6 +83,14 @@ location in the source file.
     ```{include=docs/MyFile.hs startLine=35 endLine=80 .numberLines}
     ```
 
+### Adding Links
+
+It is possible to add hyperlinks to the original source code file specified in the `include` attribute by adding the `.includeLink` class in your code block.
+
+    ```{include=docs/MyFile.hs .includeLink}
+    ```
+Refer to [AddLink.md](AddLink.md) for more information.   
+
 ### More Usage Examples
 
 * The blog post [Automating the Build of Your Technical Presentation](https://wickstrom.tech/programming/2017/09/24/automating-the-build-of-your-technical-presentation.html)
