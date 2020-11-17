@@ -36,8 +36,9 @@ import           Text.Pandoc.Filter.Range (LineNumber, Range, mkRange, rangeEnd,
                                            rangeStart)
 
  -- Added: 
-import Data.Either      (partitionEithers)
-import Data.Map         (delete)
+import           Data.Either              (partitionEithers)
+import           Data.Map                 (delete)
+import           System.FilePath 
 
 data InclusionMode
   = SnippetMode Text
@@ -49,7 +50,7 @@ data InclusionSpec = InclusionSpec
   { include :: FilePath
   , mode    :: InclusionMode
   , dedent  :: Maybe Int
-  , base :: Maybe [Char]
+  , base    :: Maybe FilePath
   }
 
 data MissingRangePart
@@ -67,7 +68,7 @@ data InclusionError
 -- newtype -> data (added constructor for link)
 data InclusionState = InclusionState --add link
   { startLineNumber :: Maybe LineNumber,
-    link :: Maybe Text
+    link :: Maybe FilePath
   }
 
 newtype Inclusion a = Inclusion
@@ -129,8 +130,8 @@ setStartLineNumber :: LineNumber -> Inclusion ()
 setStartLineNumber n = modify (\s -> s {startLineNumber = Just n})
 
 setLink :: Maybe [Char] -> [Char] -> Inclusion () 
-setLink (Just b) n = modify (\s -> s {link = Just (Text.pack (b ++ n))}) -- add the specified base to the link used in 'include'
-setLink Nothing n = modify (\s -> s {link = Just (Text.pack n)}) -- set the link to the same path used in 'include'
+setLink (Just b) n = modify (\s -> s {link = Just (b ++ n)}) -- add the specified base to the link used in 'include'
+setLink Nothing n = modify (\s -> s {link = Just n}) -- set the link to the same path used in 'include'
 
 readIncluded :: Inclusion Text
 readIncluded = liftIO . Text.readFile =<< asks include
@@ -217,18 +218,15 @@ allSteps :: Inclusion Text
 allSteps =
     includeLink >> readIncluded >>= splitLines >>= includeByMode >>= dedentLines >>= joinLines
 
-getName :: Text -> Text
-getName filepath = last $ splitOn (Text.pack "/") filepath
-
-modifiedCodeBlock :: Block -> (Text, InclusionState) -> Text -> Either InclusionError [Block]
+modifiedCodeBlock :: Block -> (Text, InclusionState) -> FilePath -> Either InclusionError [Block]
 modifiedCodeBlock cb@(CodeBlock (id', classes, attrs) _) (contents, state) base =
   case link state of
-      Just path | "includeLink" `elem` classes  -> Right [(CodeBlock (id', modifyClasses classes, modifyAttributes state classes attrs) contents), Plain [Link ("",["includeCodeLink"],[]) [Str (getName path)] ( addBase path, "")]]
+      Just path | "includeLink" `elem` classes  -> Right [CodeBlock (id', modifyClasses classes, modifyAttributes state classes attrs) contents, Plain [Link ("",["includeCodeLink"],[]) [Str $ Text.pack (takeFileName  path)] ( addBase (Text.pack path), "")]]
       _ -> Right [CodeBlock (id', classes, modifyAttributes state classes attrs) contents]
     where
       addBase link
           | or $ map ($ link) (map Text.isPrefixOf ["C:", "/", "\\", "file:", "http:", "https:"]) = link
-          | otherwise =  Text.append base link
+          | otherwise =  Text.append (Text.pack base) link
 
 includeCode' :: Text -> Block -> IO (Either InclusionError [Block])
 includeCode' base cb@(CodeBlock (id', classes, attrs) _) =  
@@ -236,7 +234,7 @@ includeCode' base cb@(CodeBlock (id', classes, attrs) _) =
       Right (Just spec) ->
         runInclusion' spec allSteps >>= \case
           Left err -> return (Left err)
-          Right out-> return (modifiedCodeBlock cb out base)
+          Right out-> return (modifiedCodeBlock cb out (Text.unpack base))
       Right Nothing -> return (Right [cb]) 
       Left err -> return (Left err)
 includeCode' _ x = return (Right [x])
