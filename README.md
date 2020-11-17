@@ -83,6 +83,65 @@ location in the source file.
     ```{include=docs/MyFile.hs startLine=35 endLine=80 .numberLines}
     ```
 
+### Adding Direct Links
+
+It is possible to add hyperlinks to the original source code file specified in the `include` attribute by adding the `.includeLink` class in your code block.
+
+    ```{include=docs/MyFile.hs .includeLink}
+    ```
+## Adding Base url for all CodeBlock links
+A base url will be appended to all relative paths specified in the
+`include` attribute of each `CodeBlock` . It does not affect paths beginning with `file:` , `C:`, `\`, `/`,.... This can be done
+two option:
+
+#### Option 1: YAML
+
+Specify a base key along with the base url as the attribute in
+the YAML header:
+
+``` 
+    ---
+    title:    All About Wonderland
+    author:   Alice
+    date:     November 2020
+    base:     http://localhost:8000/
+    ---
+```
+
+#### Option 2: Command Line
+
+Add the base as a metavalue ` -M base=<base url>` or 
+` --metavalue base=<base url>` in the command line when
+calling pandoc.
+
+```
+pandoc --filter pandoc-include-code -M base=http://localhost:8000/  in.md -o out.html
+```
+
+NOTE: If the base url is specified in the metadata block, then
+by specifying a different base in the command line, it will override
+the original base.
+
+Both of these options will add a hyperlink to the filepath defined
+in the `include`  attribute linking to
+`http://localhost:8000/source/sample.hs`:
+
+#### Overriding a specified base url
+
+Adding a base attribute in the metadata block or the command line
+will affect all relative links in the `CodeBlocks`. To add an alternative base for a
+specific link, add the base as an attribute `base=https....`  to
+the`CodeBlock`:
+
+````
+```{.haskell .includeLink include=source/sample.hs snippet=animals base=<path>}
+```
+````
+
+This adds a hyperlink to the filepath specified in the
+`include` attribute linking to `../source/sample.hs` :
+
+
 ### More Usage Examples
 
 * The blog post [Automating the Build of Your Technical Presentation](https://wickstrom.tech/programming/2017/09/24/automating-the-build-of-your-technical-presentation.html)
