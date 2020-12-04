@@ -9,3 +9,4 @@ cabal.project.local
 .DS_Store
 *.swp
 *.keter
+/result

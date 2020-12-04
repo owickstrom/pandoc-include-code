@@ -1,9 +1,8 @@
-{ nixpkgs ? import <nixpkgs> {}
-, compiler ? "ghc865"
+{ pkgs ? import <nixpkgs> {}
+, compiler ? "ghc884"
 , doCheck ? true
 }:
 let
-  inherit (nixpkgs) pkgs;
   haskellPackages = pkgs.haskell.packages.${compiler}.override {
     overrides = self: super: {
     };
