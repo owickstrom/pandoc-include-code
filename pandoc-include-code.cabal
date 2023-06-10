@@ -34,9 +34,9 @@ library
                    , unordered-containers >= 0.2      && < 0.3
                    , process
                    , filepath
-                   , text                 >= 1.2      && < 2
+                   , text                 >= 2.0      && < 3
                    , mtl                  >= 2.2      && < 3
-                   , pandoc-types         >= 1.20     && <= 1.22
+                   , pandoc-types         >= 1.20     && <= 1.24
                    , containers
 
 
@@ -45,7 +45,7 @@ executable pandoc-include-code
     main-is:         Main.hs
     other-modules:   Paths_pandoc_include_code
     build-depends:   base                 >= 4        && < 5
-                   , pandoc-types         >= 1.20     && <= 1.22
+                   , pandoc-types         >= 1.20     && <= 1.24
                    , pandoc-include-code
 
 test-suite filter-tests
@@ -55,7 +55,7 @@ test-suite filter-tests
                    , Paths_pandoc_include_code
     main-is:         Driver.hs
     build-depends:   base                 >= 4        && < 5
-                   , pandoc-types         >= 1.20     && <= 1.22
+                   , pandoc-types         >= 1.20     && <= 1.24
                    , pandoc-include-code
                    , tasty
                    , tasty-hunit
